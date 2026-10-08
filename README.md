@@ -1,179 +1,520 @@
-# FastAPI React Tutorial: Full-Stack Todo App with PostgreSQL (Docker Compose)
+# Cloud-Native Todo Platform on AWS
 
-**FastAPI + React full-stack tutorial** for students: build a **Todo REST API** in **Python FastAPI**, a **React (Vite)** UI, and **PostgreSQL**, runnable with **Docker Compose**. Includes OpenAPI docs, SQLAlchemy models, and optional Kubernetes manifests.
+A hands-on Platform Engineering project built around a React + FastAPI + PostgreSQL application.
 
-> **Lab 1** in the [Python learning path](https://github.com/saurabhahuja71/learning-path#2-python--data--apis) · Audience: intermediate beginners · Time: ~1–3 hours · Level: intermediate
+The goal of this project is to take a working full-stack application and progressively transform it into a cloud-native platform using **Docker, Kubernetes, AWS, Terraform, CI/CD, observability, and security practices**.
 
-## What is this project?
+This project is being built as a practical learning and portfolio project with a strong focus on understanding **how the platform works, how services communicate, how failures are diagnosed, and how infrastructure is automated**.
 
-A classic three-tier learning app:
+## Project Goal
 
-| Service | Tech | Host port |
-|---------|------|-----------|
-| Frontend | React (Vite) + nginx | **3000** |
-| Backend | **Python FastAPI** + Uvicorn | **8000** |
-| Database | PostgreSQL 16 | **5432** |
+The application starts as a simple three-tier application:
 
-The UI creates, lists, toggles, and deletes todos stored in Postgres.
-
-**People also search:** *FastAPI React tutorial*, *FastAPI PostgreSQL Docker Compose*, *Python full stack todo app*, *FastAPI SQLAlchemy example*, *college FastAPI project*, *React Vite proxy API*.
-
-## What you will learn
-
-- FastAPI routes, Pydantic schemas, dependency injection  
-- SQLAlchemy models + Postgres  
-- Auto **OpenAPI** docs at `/docs`  
-- React frontend talking to a JSON API  
-- Multi-container networking with Compose  
-- Optional K8s layout under `k8s/`
-
-## Prerequisites
-
-- Docker or Podman Compose **or** Python 3.11+ and Node 18+
-- Basic Python and HTTP knowledge
-- Lab 0 optional: [python-by-example](https://github.com/saurabhahuja71/python-by-example)
-
-## Quick start (Compose — recommended)
-
-```bash
-git clone https://github.com/saurabhahuja71/react-fastapi-todo.git
-cd react-fastapi-todo
-
-docker compose up --build
-# or: podman compose up --build
+```text
+React
+  ↓
+Nginx
+  ↓
+FastAPI
+  ↓
+PostgreSQL
 ```
 
-| URL | Purpose |
-|-----|---------|
-| http://localhost:3000 | Todo UI |
-| http://localhost:8000/docs | Swagger / OpenAPI |
-| http://localhost:8000/api/health | Health + DB ping |
+The target architecture is:
 
-Stop:
+```text
+                         GitHub
+                            │
+                            ▼
+                     GitHub Actions
+                            │
+                     Build / Test
+                            │
+                            ▼
+                           ECR
+                            │
+                            ▼
+                         AWS EKS
+                     ┌──────┴──────┐
+                     │             │
+                     ▼             ▼
+                Frontend       Backend
+                Service        Service
+                     │             │
+                     │             ▼
+                     │        PostgreSQL
+                     │          / RDS
+                     │
+                     ▼
+                  Ingress
+                     │
+                     ▼
+                  Internet
+```
+
+Infrastructure will eventually be managed using **Terraform**, while monitoring, logging, security, scaling, and failure recovery will be added as the project develops.
+
+---
+
+## Current Application
+
+The application is a Todo management system consisting of:
+
+| Component           | Technology     |
+| ------------------- | -------------- |
+| Frontend            | React + Vite   |
+| Web server          | Nginx          |
+| Backend             | Python FastAPI |
+| Database            | PostgreSQL 16  |
+| ORM                 | SQLAlchemy     |
+| Containerization    | Docker         |
+| Local orchestration | Docker Compose |
+
+The application supports:
+
+* Create Todo
+* List Todos
+* Complete/uncomplete Todo
+* Delete Todo
+* REST API
+* PostgreSQL persistence
+* FastAPI OpenAPI documentation
+* Health checking
+
+---
+
+## Current Local Architecture
+
+The application currently runs successfully with Docker Compose:
+
+```text
+Browser
+   │
+   │ HTTP :3000
+   ▼
+Nginx
+   │
+   │ /api/*
+   ▼
+FastAPI :8000
+   │
+   │ SQLAlchemy
+   ▼
+PostgreSQL :5432
+```
+
+Docker Compose provides internal service discovery.
+
+For example, Nginx reaches FastAPI using:
+
+```text
+backend:8000
+```
+
+rather than an IP address.
+
+FastAPI reaches PostgreSQL using:
+
+```text
+db:5432
+```
+
+This provides the foundation for understanding how the same application will later use **Kubernetes Services and DNS**.
+
+---
+
+## Local Development
+
+Start the complete application:
+
+```bash
+docker compose up --build
+```
+
+Application:
+
+```text
+http://localhost:3000
+```
+
+FastAPI documentation:
+
+```text
+http://localhost:8000/docs
+```
+
+Health endpoint:
+
+```text
+http://localhost:8000/api/health
+```
+
+Stop the application:
 
 ```bash
 docker compose down
-docker compose down -v   # also wipe DB volume
 ```
 
-## Project layout
+To also remove the local PostgreSQL volume:
+
+```bash
+docker compose down -v
+```
+
+> Removing the volume deletes the local PostgreSQL data.
+
+---
+
+## Repository Structure
 
 ```text
-react-fastapi-todo/
-├── frontend/          # React (Vite) + nginx
-├── backend/           # FastAPI + SQLAlchemy
-│   └── app/main.py models.py schemas.py database.py
+cloud-native-todo-platform/
+│
+├── backend/
+│   ├── app/
+│   ├── Dockerfile
+│   └── requirements.txt
+│
+├── frontend/
+│   ├── src/
+│   ├── Dockerfile
+│   ├── nginx.conf
+│   └── package.json
+│
+├── k8s/
+│   └── Kubernetes manifests
+│
+├── terraform/
+│   └── AWS infrastructure
+│
+├── architecture/
+│   └── Architecture diagrams
+│
+├── docs/
+│   ├── how-it-works.md
+│   └── architecture.md
+│
+├── .github/
+│   └── workflows/
+│
 ├── docker-compose.yml
-├── k8s/               # optional Kubernetes
-├── docs/how-it-works.md
-├── docs/architecture.md
-└── .env.example
+├── .env.example
+├── .gitignore
+└── README.md
 ```
 
-## Run locally (without full stack containers)
+Some directories will be added progressively as the platform is developed.
 
-### 1. Database
+---
 
-```bash
-docker run --name reactapp-db \
-  -e POSTGRES_USER=todos \
-  -e POSTGRES_PASSWORD=todos \
-  -e POSTGRES_DB=todos \
-  -p 5432:5432 \
-  -d postgres:16-alpine
+# Platform Engineering Roadmap
+
+The project will be developed incrementally rather than deploying everything at once.
+
+## Phase 1 — Application Understanding
+
+* Understand React → Nginx → FastAPI → PostgreSQL
+* Understand REST API communication
+* Understand Docker images and containers
+* Understand Docker networking
+* Understand health checks
+* Understand persistent data
+
+**Status: Complete**
+
+---
+
+## Phase 2 — Kubernetes
+
+Deploy the application to Kubernetes.
+
+Topics:
+
+* Pods
+* Deployments
+* Services
+* ConfigMaps
+* Secrets
+* Persistent storage
+* Readiness probes
+* Liveness probes
+* Resource requests/limits
+* Ingress
+* DNS/service discovery
+
+Target:
+
+```text
+Ingress
+   │
+   ├── /
+   │    ↓
+   │  Frontend Service
+   │
+   └── /api
+        ↓
+      Backend Service
+             ↓
+        PostgreSQL
 ```
 
-### 2. Backend
+**Status: Planned**
 
-```bash
-cd backend
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-export DATABASE_URL=postgresql://todos:todos@localhost:5432/todos
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+---
+
+## Phase 3 — AWS
+
+Move the Kubernetes platform to Amazon EKS.
+
+Planned AWS services include:
+
+* Amazon VPC
+* Public/private subnets
+* Internet Gateway
+* NAT Gateway
+* Amazon EKS
+* EC2 managed node groups
+* Elastic Load Balancing
+* Amazon ECR
+* Amazon RDS
+* Amazon S3
+* CloudWatch
+* IAM
+
+**Status: Planned**
+
+---
+
+## Phase 4 — CI/CD
+
+Build an automated delivery pipeline:
+
+```text
+Developer
+   │
+   ▼
+GitHub
+   │
+   ▼
+GitHub Actions
+   │
+   ├── Tests
+   ├── Docker build
+   ├── Image scan
+   └── Push image
+          │
+          ▼
+         ECR
+          │
+          ▼
+         EKS
 ```
 
-### 3. Frontend
+The objective is to understand the complete path from a code change to a running application.
 
-```bash
-cd frontend
-npm install
-npm run dev
+**Status: Planned**
+
+---
+
+## Phase 5 — Infrastructure as Code
+
+Infrastructure will progressively be managed using Terraform.
+
+Planned areas:
+
+* VPC
+* Subnets
+* Routing
+* Security groups
+* IAM
+* EKS
+* Node groups
+* ECR
+* RDS
+* Supporting AWS resources
+
+Target:
+
+```text
+Terraform
+    │
+    ▼
+AWS Infrastructure
+    │
+    ▼
+EKS Platform
+    │
+    ▼
+Application
 ```
 
-UI: http://localhost:5173 (Vite proxies `/api` → backend).
+**Status: Planned**
 
-## REST API overview
+---
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/health` | Health + DB |
-| GET | `/api/todos` | List todos |
-| POST | `/api/todos` | Create `{ "title": "..." }` |
-| PATCH | `/api/todos/{id}` | Update todo |
-| DELETE | `/api/todos/{id}` | Delete todo |
+## Phase 6 — Observability
 
-```bash
-curl http://localhost:8000/api/health
-curl -X POST http://localhost:8000/api/todos \
-  -H "Content-Type: application/json" \
-  -d '{"title":"Learn FastAPI"}'
+Add operational visibility through:
+
+* Application logs
+* Kubernetes logs
+* Metrics
+* CloudWatch
+* Health checks
+* Alerts
+* Resource monitoring
+
+The goal is not just to deploy the application, but to understand:
+
+> Is it working?
+> If not, why?
+> Where did the failure occur?
+
+**Status: Planned**
+
+---
+
+## Phase 7 — Security and Reliability
+
+Planned improvements:
+
+* IAM least privilege
+* Kubernetes RBAC
+* Kubernetes Secrets
+* AWS security groups
+* Private networking
+* HTTPS/TLS
+* Container image scanning
+* Non-root containers
+* Resource limits
+* Network isolation
+* Backup and recovery
+* Failure testing
+
+**Status: Planned**
+
+---
+
+# Learning Method
+
+This project follows a practical engineering workflow:
+
+```text
+Situation
+   ↓
+Understand the concept
+   ↓
+Build it
+   ↓
+Verify it
+   ↓
+Break it intentionally
+   ↓
+Troubleshoot
+   ↓
+Fix it
+   ↓
+Document what happened
 ```
 
-## Environment
+The objective is to develop **operational understanding**, rather than simply memorizing cloud commands.
 
-| Variable | Where | Default |
-|----------|--------|---------|
-| `DATABASE_URL` | backend | `postgresql://todos:todos@localhost:5432/todos` |
-| `VITE_API_URL` | frontend | empty (same-origin `/api`) |
+---
 
-See `.env.example`. Demo passwords are **not** for production.
+# Current Technology Stack
 
-## Lab exercises
+### Application
 
-1. Add a `description` field to Todo (model + schema + UI).  
-2. Add pagination to `GET /api/todos`.  
-3. Write a pytest for create/list endpoints.  
-4. Compare this stack with [grpc-golang-todo](https://github.com/saurabhahuja71/grpc-golang-todo).  
-5. Deploy using `k8s/` manifests in a local cluster.
+* React
+* Vite
+* Nginx
+* FastAPI
+* Python
+* SQLAlchemy
+* PostgreSQL
 
-## Deeper docs
+### Platform
 
-- [`docs/how-it-works.md`](docs/how-it-works.md) — request path, proxy, Services  
-- [`docs/architecture.md`](docs/architecture.md)  
-- [`k8s/README.md`](k8s/README.md)
+* Docker
+* Kubernetes
+* AWS
+* Amazon EKS
+* Amazon ECR
+* Amazon RDS
+* Terraform
+* GitHub Actions
+* CloudWatch
 
-## Learning path
+Technologies will be introduced progressively as the project evolves.
 
-| # | Lab | Focus |
-|---|-----|--------|
-| 0 | [python-by-example](https://github.com/saurabhahuja71/python-by-example) | Browser Python |
-| **1 (this)** | react-fastapi-todo | Full-stack API |
-| 2 | [pets-updates](https://github.com/saurabhahuja71/pets-updates) | Flask product workshop |
-| 3–4 | ML labs | pandas / sklearn |
+---
 
-Hub: [learning-path](https://github.com/saurabhahuja71/learning-path)
+# Why This Project?
 
-## FAQ — FastAPI for students
+The project is designed to demonstrate practical Platform/Cloud Engineering skills:
 
-**FastAPI vs Flask?**  
-FastAPI gives type hints, validation, and free OpenAPI docs. Flask is simpler and older; both are valuable.
+* Containerization
+* Kubernetes
+* Cloud networking
+* AWS infrastructure
+* Infrastructure as Code
+* CI/CD
+* Observability
+* Security
+* Troubleshooting
+* Reliability
+* Production-oriented architecture
 
-**Why PostgreSQL not SQLite?**  
-Closer to real deployments; Compose makes it easy.
+Rather than building a new application from scratch, the focus is on **designing, deploying, automating, operating, and improving the platform around an existing application**.
 
-**Is CORS open in the sample?**  
-Yes (`allow_origins=["*"]`) for demos — tighten for production.
+---
 
-## Topics / SEO tags
+# Original Application
 
-`fastapi` `react` `postgresql` `python` `fullstack` `docker-compose` `sqlalchemy` `todo-app` `tutorial` `uvicorn` `college` `rest-api` `openapi`
+The initial Todo application was based on the educational project:
+
+**react-fastapi-todo by Saurabh Ahuja**
+
+Original project:
+
+https://github.com/saurabhahuja71/react-fastapi-todo
+
+The original application structure and educational code are being used as the starting point for this independent Platform Engineering project.
+
+Please refer to the original repository and included license information for the original application's licensing and attribution requirements.
+
+---
+
+# Project Status
+
+| Area                                   | Status     |
+| -------------------------------------- | ---------- |
+| Application running locally            | ✅ Complete |
+| Docker Compose                         | ✅ Complete |
+| Application architecture understanding | ✅ Complete |
+| GitHub repository                      | ✅ Complete |
+| Kubernetes deployment                  | 🔄 Next    |
+| AWS infrastructure                     | Planned    |
+| EKS                                    | Planned    |
+| ECR                                    | Planned    |
+| CI/CD                                  | Planned    |
+| Terraform                              | Planned    |
+| Monitoring                             | Planned    |
+| Security hardening                     | Planned    |
+| Failure testing                        | Planned    |
+
+---
 
 ## Author
 
-[Saurabh Ahuja](https://github.com/saurabhahuja71) · [learning-path](https://github.com/saurabhahuja71/learning-path)
+**Ankit Gupta**
 
-## License
+Platform / Cloud Engineering learning project.
 
-Educational sample. Review dependency licenses before commercial use.
+GitHub:
+
+https://github.com/ankitguptasato
+
+Repository:
+
+https://github.com/ankitguptasato/cloud-native-todo-platform
