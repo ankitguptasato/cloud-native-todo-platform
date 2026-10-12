@@ -21,3 +21,15 @@ variable "private_subnet_cidr" {
   type        = string
   default     = "10.0.2.0/24"
 }
+
+variable "second_availability_zone" {
+  description = "Availability Zone for the second public subnet"
+  type        = string
+  default     = "ap-northeast-1c"
+}
+
+variable "second_public_subnet_cidr" {
+  description = "CIDR range for the second public subnet"
+  type        = string
+  default     = "10.0.3.0/24"
+}
