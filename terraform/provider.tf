@@ -1,4 +1,4 @@
 provider "aws" {
   region  = "ap-northeast-1"
-  profile = "terraform-lab1"
+  profile = "terraform-lab2"
 }

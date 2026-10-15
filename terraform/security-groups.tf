@@ -12,13 +12,12 @@ resource "aws_security_group" "public_web" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "public_web_http" {
-  security_group_id = aws_security_group.public_web.id
-
-  description = "Allow HTTP traffic for the learning web tier"
-  ip_protocol = "tcp"
-  from_port   = 80
-  to_port     = 80
-  cidr_ipv4   = "0.0.0.0/0"
+  security_group_id            = aws_security_group.public_web.id
+  referenced_security_group_id = aws_security_group.alb.id
+  from_port                    = 80
+  ip_protocol                  = "tcp"
+  to_port                      = 80
+  description                  = "Allow HTTP only from the ALB"
 }
 
 resource "aws_vpc_security_group_egress_rule" "public_web_outbound" {
