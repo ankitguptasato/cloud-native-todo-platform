@@ -1,0 +1,50 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: reactapp-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: todos
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.prod}
+      POSTGRES_DB: todos
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U todos -d todos"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    image: ankit-todo-backend:prod
+    build:
+      context: ./backend
+    container_name: reactapp-backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://todos:${POSTGRES_PASSWORD}@db:5432/todos
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  frontend:
+    image: ankit-todo-frontend:prod
+    build:
+      context: ./frontend
+    container_name: reactapp-frontend
+    restart: unless-stopped
+    ports:
+      - "80:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  pgdata:
