@@ -1,520 +1,130 @@
-# Cloud-Native Todo Platform on AWS
+# Cloud-Native Todo Platform
 
-A hands-on Platform Engineering project built around a React + FastAPI + PostgreSQL application.
+A full-stack application deployed on AWS, built to demonstrate practical **Platform Engineering, Infrastructure as Code, containerization, cloud networking, and application operations**.
 
-The goal of this project is to take a working full-stack application and progressively transform it into a cloud-native platform using **Docker, Kubernetes, AWS, Terraform, CI/CD, observability, and security practices**.
+The project takes a React frontend, FastAPI backend, and PostgreSQL database from application code to a working AWS deployment using Docker, Amazon ECR, Amazon EC2, an Application Load Balancer, and Terraform.
 
-This project is being built as a practical learning and portfolio project with a strong focus on understanding **how the platform works, how services communicate, how failures are diagnosed, and how infrastructure is automated**.
+## Architecture
 
-## Project Goal
+```mermaid
+flowchart TD
+    User[User / Browser] --> ALB[AWS Application Load Balancer]
+    ALB --> HostNginx[EC2 Host Nginx :80]
+    HostNginx --> Frontend[Frontend Container :8080]
+    Frontend --> Backend[FastAPI Backend :8000]
+    Backend --> DB[(PostgreSQL :5432)]
 
-The application starts as a simple three-tier application:
-
-```text
-React
-  ↓
-Nginx
-  ↓
-FastAPI
-  ↓
-PostgreSQL
+    Terraform[Terraform] -. provisions .-> ALB
+    Terraform -. provisions .-> EC2[EC2 Instance]
+    Terraform -. provisions .-> ECR[Amazon ECR]
+    ECR -. stores container images .-> Frontend
+    ECR -. stores container images .-> Backend
 ```
 
-The target architecture is:
+### Technology stack
 
-```text
-                         GitHub
-                            │
-                            ▼
-                     GitHub Actions
-                            │
-                     Build / Test
-                            │
-                            ▼
-                           ECR
-                            │
-                            ▼
-                         AWS EKS
-                     ┌──────┴──────┐
-                     │             │
-                     ▼             ▼
-                Frontend       Backend
-                Service        Service
-                     │             │
-                     │             ▼
-                     │        PostgreSQL
-                     │          / RDS
-                     │
-                     ▼
-                  Ingress
-                     │
-                     ▼
-                  Internet
-```
+| Area                          | Technologies                                                       |
+| ----------------------------- | ------------------------------------------------------------------ |
+| Frontend                      | React                                                              |
+| Backend                       | Python, FastAPI                                                    |
+| Database                      | PostgreSQL                                                         |
+| Containerization              | Docker, Docker Compose                                             |
+| Infrastructure as Code        | Terraform                                                          |
+| Cloud                         | AWS EC2, Application Load Balancer, ECR, IAM, VPC, Security Groups |
+| Instance management           | AWS Systems Manager (SSM)                                          |
+| Web serving and reverse proxy | Nginx                                                              |
+| Version control               | Git, GitHub                                                        |
 
-Infrastructure will eventually be managed using **Terraform**, while monitoring, logging, security, scaling, and failure recovery will be added as the project develops.
+## Implemented capabilities
 
----
+* **Infrastructure as Code:** AWS infrastructure is defined and managed using Terraform.
+* **Containerized application:** Frontend, backend, and database run as separate containers.
+* **Container registry:** Application images are stored in Amazon ECR.
+* **Load-balanced entry point:** An AWS Application Load Balancer provides the application entry point.
+* **Reverse proxy:** Nginx routes incoming HTTP requests to the frontend container.
+* **Service communication:** The frontend communicates with FastAPI, which connects to PostgreSQL over the Docker network.
+* **Database persistence:** PostgreSQL data is stored in a named Docker volume.
+* **Health checks and startup ordering:** Docker Compose checks database readiness before starting the backend.
+* **Access control:** EC2 uses an IAM instance profile for AWS Systems Manager and read-only ECR access.
+* **Operational validation:** Deployment is verified through container status, health checks, Nginx validation, and application smoke tests.
 
-## Current Application
-
-The application is a Todo management system consisting of:
-
-| Component           | Technology     |
-| ------------------- | -------------- |
-| Frontend            | React + Vite   |
-| Web server          | Nginx          |
-| Backend             | Python FastAPI |
-| Database            | PostgreSQL 16  |
-| ORM                 | SQLAlchemy     |
-| Containerization    | Docker         |
-| Local orchestration | Docker Compose |
-
-The application supports:
-
-* Create Todo
-* List Todos
-* Complete/uncomplete Todo
-* Delete Todo
-* REST API
-* PostgreSQL persistence
-* FastAPI OpenAPI documentation
-* Health checking
-
----
-
-## Current Local Architecture
-
-The application currently runs successfully with Docker Compose:
-
-```text
-Browser
-   │
-   │ HTTP :3000
-   ▼
-Nginx
-   │
-   │ /api/*
-   ▼
-FastAPI :8000
-   │
-   │ SQLAlchemy
-   ▼
-PostgreSQL :5432
-```
-
-Docker Compose provides internal service discovery.
-
-For example, Nginx reaches FastAPI using:
-
-```text
-backend:8000
-```
-
-rather than an IP address.
-
-FastAPI reaches PostgreSQL using:
-
-```text
-db:5432
-```
-
-This provides the foundation for understanding how the same application will later use **Kubernetes Services and DNS**.
-
----
-
-## Local Development
-
-Start the complete application:
-
-```bash
-docker compose up --build
-```
-
-Application:
-
-```text
-http://localhost:3000
-```
-
-FastAPI documentation:
-
-```text
-http://localhost:8000/docs
-```
-
-Health endpoint:
-
-```text
-http://localhost:8000/api/health
-```
-
-Stop the application:
-
-```bash
-docker compose down
-```
-
-To also remove the local PostgreSQL volume:
-
-```bash
-docker compose down -v
-```
-
-> Removing the volume deletes the local PostgreSQL data.
-
----
-
-## Repository Structure
+## Repository structure
 
 ```text
 cloud-native-todo-platform/
-│
-├── backend/
-│   ├── app/
-│   ├── Dockerfile
-│   └── requirements.txt
-│
-├── frontend/
-│   ├── src/
-│   ├── Dockerfile
-│   ├── nginx.conf
-│   └── package.json
-│
-├── k8s/
-│   └── Kubernetes manifests
-│
-├── terraform/
-│   └── AWS infrastructure
-│
-├── architecture/
-│   └── Architecture diagrams
-│
-├── docs/
-│   ├── how-it-works.md
-│   └── architecture.md
-│
-├── .github/
-│   └── workflows/
-│
-├── docker-compose.yml
-├── .env.example
+├── backend/                  # FastAPI application
+├── frontend/                 # React application
+├── terraform/                # AWS infrastructure definitions
+├── docker-compose.yml        # Application services
+├── docker-compose.prod.yml   # Production Compose configuration
 ├── .gitignore
 └── README.md
 ```
 
-Some directories will be added progressively as the platform is developed.
+The exact files and responsibilities may evolve as the project grows.
 
----
+## Deployment overview
 
-# Platform Engineering Roadmap
+The deployment follows this workflow:
 
-The project will be developed incrementally rather than deploying everything at once.
+1. Define AWS infrastructure using Terraform.
+2. Build the frontend and backend Docker images.
+3. Push the images to Amazon ECR.
+4. Configure EC2 access to the container registry through IAM.
+5. Run the application services using Docker Compose.
+6. Configure Nginx as the reverse proxy.
+7. Access the application through the AWS Application Load Balancer.
+8. Verify application availability, service health, and database connectivity.
 
-## Phase 1 — Application Understanding
+Infrastructure changes should be reviewed using Terraform's plan output before being applied.
 
-* Understand React → Nginx → FastAPI → PostgreSQL
-* Understand REST API communication
-* Understand Docker images and containers
-* Understand Docker networking
-* Understand health checks
-* Understand persistent data
+## Security considerations
 
-**Status: Complete**
+* Application secrets should be provided through environment variables or an appropriate secret-management mechanism, not committed to Git.
+* Database access should remain internal to the application network.
+* The frontend container is published on the EC2 loopback interface rather than exposed directly to the internet.
+* The EC2 security group should permit HTTP traffic from the load balancer rather than from arbitrary internet sources.
+* IAM permissions should follow least-privilege principles.
+* Terraform state and credentials must be handled securely.
 
----
+## Current limitations
 
-## Phase 2 — Kubernetes
+This is a hands-on engineering project, not a claim of a fully production-hardened platform.
 
-Deploy the application to Kubernetes.
+* The application currently uses a single EC2 instance, so the application tier is not highly available.
+* The current entry point uses HTTP; HTTPS and managed certificate configuration remain future work.
+* Automated deployment, centralized observability, and automated backup-and-restore procedures can be added as the platform evolves.
+* The current deployment should be tested for recovery and rollback before being treated as production-ready.
 
-Topics:
+## Planned improvements
 
-* Pods
-* Deployments
-* Services
-* ConfigMaps
-* Secrets
-* Persistent storage
-* Readiness probes
-* Liveness probes
-* Resource requests/limits
-* Ingress
-* DNS/service discovery
+* Add CI/CD for automated testing, image building, and deployment.
+* Use immutable image tags or image digests instead of relying on `latest`.
+* Add HTTPS using AWS Certificate Manager.
+* Introduce application and infrastructure monitoring, dashboards, and alerting.
+* Document backup, restore, rollback, and incident-response procedures.
+* Add automated infrastructure validation and security checks.
+* Evaluate multi-instance deployment and managed database options.
 
-Target:
+## Engineering principles
 
-```text
-Ingress
-   │
-   ├── /
-   │    ↓
-   │  Frontend Service
-   │
-   └── /api
-        ↓
-      Backend Service
-             ↓
-        PostgreSQL
-```
+This project focuses on:
 
-**Status: Planned**
-
----
-
-## Phase 3 — AWS
-
-Move the Kubernetes platform to Amazon EKS.
-
-Planned AWS services include:
-
-* Amazon VPC
-* Public/private subnets
-* Internet Gateway
-* NAT Gateway
-* Amazon EKS
-* EC2 managed node groups
-* Elastic Load Balancing
-* Amazon ECR
-* Amazon RDS
-* Amazon S3
-* CloudWatch
-* IAM
-
-**Status: Planned**
-
----
-
-## Phase 4 — CI/CD
-
-Build an automated delivery pipeline:
-
-```text
-Developer
-   │
-   ▼
-GitHub
-   │
-   ▼
-GitHub Actions
-   │
-   ├── Tests
-   ├── Docker build
-   ├── Image scan
-   └── Push image
-          │
-          ▼
-         ECR
-          │
-          ▼
-         EKS
-```
-
-The objective is to understand the complete path from a code change to a running application.
-
-**Status: Planned**
-
----
-
-## Phase 5 — Infrastructure as Code
-
-Infrastructure will progressively be managed using Terraform.
-
-Planned areas:
-
-* VPC
-* Subnets
-* Routing
-* Security groups
-* IAM
-* EKS
-* Node groups
-* ECR
-* RDS
-* Supporting AWS resources
-
-Target:
-
-```text
-Terraform
-    │
-    ▼
-AWS Infrastructure
-    │
-    ▼
-EKS Platform
-    │
-    ▼
-Application
-```
-
-**Status: Planned**
-
----
-
-## Phase 6 — Observability
-
-Add operational visibility through:
-
-* Application logs
-* Kubernetes logs
-* Metrics
-* CloudWatch
-* Health checks
-* Alerts
-* Resource monitoring
-
-The goal is not just to deploy the application, but to understand:
-
-> Is it working?
-> If not, why?
-> Where did the failure occur?
-
-**Status: Planned**
-
----
-
-## Phase 7 — Security and Reliability
-
-Planned improvements:
-
-* IAM least privilege
-* Kubernetes RBAC
-* Kubernetes Secrets
-* AWS security groups
-* Private networking
-* HTTPS/TLS
-* Container image scanning
-* Non-root containers
-* Resource limits
-* Network isolation
-* Backup and recovery
-* Failure testing
-
-**Status: Planned**
-
----
-
-# Learning Method
-
-This project follows a practical engineering workflow:
-
-```text
-Situation
-   ↓
-Understand the concept
-   ↓
-Build it
-   ↓
-Verify it
-   ↓
-Break it intentionally
-   ↓
-Troubleshoot
-   ↓
-Fix it
-   ↓
-Document what happened
-```
-
-The objective is to develop **operational understanding**, rather than simply memorizing cloud commands.
-
----
-
-# Current Technology Stack
-
-### Application
-
-* React
-* Vite
-* Nginx
-* FastAPI
-* Python
-* SQLAlchemy
-* PostgreSQL
-
-### Platform
-
-* Docker
-* Kubernetes
-* AWS
-* Amazon EKS
-* Amazon ECR
-* Amazon RDS
-* Terraform
-* GitHub Actions
-* CloudWatch
-
-Technologies will be introduced progressively as the project evolves.
-
----
-
-# Why This Project?
-
-The project is designed to demonstrate practical Platform/Cloud Engineering skills:
-
-* Containerization
-* Kubernetes
-* Cloud networking
-* AWS infrastructure
-* Infrastructure as Code
-* CI/CD
-* Observability
-* Security
-* Troubleshooting
-* Reliability
-* Production-oriented architecture
-
-Rather than building a new application from scratch, the focus is on **designing, deploying, automating, operating, and improving the platform around an existing application**.
-
----
-
-# Original Application
-
-The initial Todo application was based on the educational project:
-
-**react-fastapi-todo by Saurabh Ahuja**
-
-Original project:
-
-https://github.com/saurabhahuja71/react-fastapi-todo
-
-The original application structure and educational code are being used as the starting point for this independent Platform Engineering project.
-
-Please refer to the original repository and included license information for the original application's licensing and attribution requirements.
-
----
-
-# Project Status
-
-| Area                                   | Status     |
-| -------------------------------------- | ---------- |
-| Application running locally            | ✅ Complete |
-| Docker Compose                         | ✅ Complete |
-| Application architecture understanding | ✅ Complete |
-| GitHub repository                      | ✅ Complete |
-| Kubernetes deployment                  | 🔄 Next    |
-| AWS infrastructure                     | Planned    |
-| EKS                                    | Planned    |
-| ECR                                    | Planned    |
-| CI/CD                                  | Planned    |
-| Terraform                              | Planned    |
-| Monitoring                             | Planned    |
-| Security hardening                     | Planned    |
-| Failure testing                        | Planned    |
-
----
+* Reproducible infrastructure through Terraform
+* Separation of application and infrastructure concerns
+* Explicit network boundaries and IAM permissions
+* Repeatable container deployment
+* Health checks and operational verification
+* Documented design decisions and known trade-offs
 
 ## Author
 
 **Ankit Gupta**
 
-Platform / Cloud Engineering learning project.
+Software Engineer | Cloud & Platform Engineering
 
-GitHub:
+GitHub: [ankitguptasato](https://github.com/ankitguptasato)
 
-https://github.com/ankitguptasato
+---
 
-Repository:
-
-https://github.com/ankitguptasato/cloud-native-todo-platform
+*This repository is an evolving hands-on project for demonstrating cloud infrastructure, deployment automation, and operational engineering skills.*
