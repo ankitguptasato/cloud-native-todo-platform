@@ -60,7 +60,7 @@ jobs:
           echo "Branch: ${{ github.ref }}"
           echo "Repository: ${{ github.repository }}"
       
-            - name: Debug OIDC identity
+      - name: Debug OIDC identity
         env:
           ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
           ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
@@ -83,7 +83,7 @@ jobs:
           print("OIDC subject:", claims.get("sub"))
           print("OIDC audience:", claims.get("aud"))
           PY
-
+      
       
       - name: Configure AWS credentials
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -92,34 +92,7 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ap-northeast-1
       
-            - name: Debug OIDC identity
-        run: |
-          python - <<'PY'
-          import os, json, urllib.request, urllib.parse, base64
-
-          url = os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"]
-          token_url = url + "&" + urllib.parse.urlencode({
-              "audience": "sts.amazonaws.com"
-          })
-
-          request = urllib.request.Request(
-              token_url,
-              headers={
-                  "Authorization": "Bearer " +
-                  os.environ["ACTIONS_ID_TOKEN_REQUEST_TOKEN"]
-              }
-          )
-
-          with urllib.request.urlopen(request) as response:
-              token = json.load(response)["value"]
-
-          payload = token.split(".")[1]
-          payload += "=" * (-len(payload) % 4)
-          claims = json.loads(base64.urlsafe_b64decode(payload))
-
-          print("OIDC subject:", claims.get("sub"))
-          print("OIDC audience:", claims.get("aud"))
-          PY
+      
 
       - name: Log in to Amazon ECR
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
