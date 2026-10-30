@@ -54,6 +54,12 @@ jobs:
       - name: Build frontend Docker image
         run: docker build -t todo-frontend:ci ./frontend
 
+      - name: Debug GitHub event
+        run: |
+          echo "Event: ${{ github.event_name }}"
+          echo "Branch: ${{ github.ref }}"
+          echo "Repository: ${{ github.repository }}"
+
       
       - name: Configure AWS credentials
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
