@@ -54,37 +54,6 @@ jobs:
       - name: Build frontend Docker image
         run: docker build -t todo-frontend:ci ./frontend
 
-      - name: Debug GitHub event
-        run: |
-          echo "Event: ${{ github.event_name }}"
-          echo "Branch: ${{ github.ref }}"
-          echo "Repository: ${{ github.repository }}"
-      
-      - name: Debug OIDC identity
-        env:
-          ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
-          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
-        run: |
-          python - <<'PY'
-          import os, json, urllib.request, urllib.parse, base64
-
-          url = os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"]
-          token_request = urllib.request.Request(
-              url + "&" + urllib.parse.urlencode({"audience": "sts.amazonaws.com"}),
-              headers={"Authorization": "Bearer " + os.environ["ACTIONS_ID_TOKEN_REQUEST_TOKEN"]}
-          )
-          with urllib.request.urlopen(token_request) as response:
-              token = json.load(response)["value"]
-
-          payload = token.split(".")[1]
-          payload += "=" * (-len(payload) % 4)
-          claims = json.loads(base64.urlsafe_b64decode(payload))
-
-          print("OIDC subject:", claims.get("sub"))
-          print("OIDC audience:", claims.get("aud"))
-          PY
-      
-      
       - name: Configure AWS credentials
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: aws-actions/configure-aws-credentials@v4
@@ -118,4 +87,61 @@ jobs:
         run: |
           docker tag todo-frontend:ci $REGISTRY/$REPOSITORY:$IMAGE_TAG
           docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
+      
+      - name: Deploy to EC2 through AWS SSM
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Triggering EC2 deployment..."
+
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "i-03666c1f6c56d3d27" \
+            --document-name "AWS-RunShellScript" \
+            --parameters "{\"commands\":[\"sudo /opt/todo-app/deploy.sh ${GITHUB_SHA}\"]}" \
+            --region ap-northeast-1 \
+            --query "Command.CommandId" \
+            --output text)
+
+          echo "SSM Command ID: ${COMMAND_ID}"
+
+          for attempt in $(seq 1 60); do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "${COMMAND_ID}" \
+              --instance-id "i-03666c1f6c56d3d27" \
+              --region ap-northeast-1 \
+              --query "Status" \
+              --output text 2>/dev/null || echo "Pending")
+
+            echo "Deployment status: ${STATUS}"
+
+            case "${STATUS}" in
+              Success)
+                aws ssm get-command-invocation \
+                  --command-id "${COMMAND_ID}" \
+                  --instance-id "i-03666c1f6c56d3d27" \
+                  --region ap-northeast-1 \
+                  --query "StandardOutputContent" \
+                  --output text
+                echo "EC2 deployment successful."
+                exit 0
+                ;;
+              Failed|TimedOut|Cancelled|Cancelling)
+                aws ssm get-command-invocation \
+                  --command-id "${COMMAND_ID}" \
+                  --instance-id "i-03666c1f6c56d3d27" \
+                  --region ap-northeast-1 \
+                  --output json
+                echo "EC2 deployment failed."
+                exit 1
+                ;;
+            esac
+
+            sleep 5
+          done
+
+          echo "Deployment timed out."
+          exit 1
+
 
