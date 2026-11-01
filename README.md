@@ -1,256 +1,218 @@
 # Cloud-Native Todo Platform
 
-A full-stack Todo application built to demonstrate modern cloud infrastructure, containerization, Infrastructure as Code (IaC), and CI/CD automation using AWS, Docker, Terraform, and GitHub Actions.
+A full-stack Todo application deployed on AWS, built to demonstrate practical skills in **Cloud Infrastructure, Docker, CI/CD, Continuous Deployment, Kubernetes, and Platform Engineering**.
 
-The project focuses on building and operating a cloud-native application with an automated build and container image publishing pipeline.
+The project combines a React frontend, FastAPI backend, and PostgreSQL database, with automated build and deployment workflows using GitHub Actions and AWS services.
 
 ## Architecture
 
 ```text
-                   Developer
-                       |
-                       v
-                GitHub Repository
-                       |
-                       v
-                GitHub Actions CI
-                       |
-             +---------+---------+
-             |                   |
-        Frontend Build      Backend Validation
-             |                   |
-             +---------+---------+
-                       |
-                  Docker Build
-                       |
-                       v
-               GitHub Actions OIDC
-                       |
-                 AWS IAM Role
-                       |
-                       v
-                 Amazon ECR
-                 /         \
-                /           \
-       Backend Image    Frontend Image
-                \           /
-                 \         /
-                  Future Deployment
-                       |
-                       v
-                  AWS EC2
-                       |
-                 Docker Compose
-                       |
-                     Nginx
-                       |
-                Application Users
+                    Developer
+                        |
+                        v
+                   GitHub Repo
+                        |
+                        v
+                 GitHub Actions
+                        |
+              +---------+---------+
+              |                   |
+              v                   v
+         Build & Test        Docker Images
+                                  |
+                                  v
+                             Amazon ECR
+                                  |
+                                  v
+                         AWS Systems Manager
+                                  |
+                                  v
+                              EC2 Instance
+                                  |
+                            Docker Compose
+                                  |
+                    +-------------+-------------+
+                    |             |             |
+                    v             v             v
+                 Frontend      Backend       PostgreSQL
+                 React         FastAPI        Database
+                    |
+                    v
+                  Nginx
+                    |
+                    v
+             Application Load Balancer
 ```
 
 ## Technology Stack
 
-| Category | Technologies |
+| Area | Technologies |
 |---|---|
-| Frontend | React, JavaScript, HTML, CSS |
+| Frontend | React, JavaScript |
 | Backend | Python, FastAPI |
 | Database | PostgreSQL |
 | Containers | Docker, Docker Compose |
-| Cloud | AWS EC2, Application Load Balancer, Amazon ECR |
-| Infrastructure as Code | Terraform |
+| Cloud | AWS |
+| Compute | Amazon EC2 |
+| Container Registry | Amazon ECR |
+| Networking | Application Load Balancer, Nginx |
 | CI/CD | GitHub Actions |
-| Authentication | AWS IAM, GitHub OIDC |
-| Web Server / Reverse Proxy | Nginx |
+| AWS Authentication | GitHub Actions OIDC |
+| Remote Deployment | AWS Systems Manager (SSM) |
+| Infrastructure as Code | Terraform (in progress) |
 | Version Control | Git, GitHub |
 
-## Project Structure
+## Implemented Features
+
+### 1. Full-Stack Application
+
+- React-based frontend.
+- FastAPI backend with REST API endpoints.
+- PostgreSQL database integration.
+- Containerized application services.
+- Health endpoint for backend and database connectivity verification.
+
+### 2. AWS Infrastructure and Deployment
+
+- Application hosted on an Amazon EC2 instance.
+- Application Load Balancer configured to route incoming traffic.
+- Nginx serving the frontend and handling API requests.
+- Amazon ECR storing backend and frontend Docker images.
+- Docker Compose managing application containers.
+- AWS Systems Manager used to access and manage the EC2 instance without relying on direct SSH access.
+
+### 3. Continuous Integration (CI)
+
+GitHub Actions automatically runs the CI workflow when code is pushed to the main branch or a pull request is created against main.
+
+The pipeline includes:
+
+- Frontend dependency installation and production build.
+- Backend dependency installation and Python syntax validation.
+- Docker image builds for frontend and backend.
+- AWS authentication using GitHub OIDC.
+- Publishing Docker images to Amazon ECR.
+
+### 4. Continuous Deployment (CD)
+
+Continuous deployment is implemented through GitHub Actions and AWS Systems Manager.
+
+After a successful push to the main branch:
+
+1. GitHub Actions builds the frontend and backend Docker images.
+2. Images are tagged using the Git commit SHA.
+3. Images are pushed to their respective Amazon ECR repositories.
+4. GitHub Actions triggers an AWS Systems Manager command on the EC2 instance.
+5. The EC2 deployment script pulls the specified image versions.
+6. Docker Compose updates the application containers.
+7. The deployment script checks the backend health status.
+8. The GitHub Actions workflow waits for the remote deployment command and reports its result.
+
+This provides a continuous deployment workflow from a GitHub commit to the running application on AWS.
+
+### 5. Secure GitHub-to-AWS Authentication
+
+GitHub Actions authenticates with AWS using OpenID Connect (OIDC).
+
+- No long-lived AWS access keys are stored in GitHub Secrets.
+- IAM role-based access is configured for GitHub Actions.
+- ECR permissions are scoped to the application's repositories.
+- SSM permissions allow the workflow to trigger and monitor deployment commands.
+
+### 6. Automatic Deployment Rollback
+
+An automatic rollback mechanism has been implemented in the EC2 deployment script.
+
+Before deploying a new version, the script records the currently running backend and frontend image references.
+
+If deployment fails:
+
+1. The failure is detected by the deployment script.
+2. The previously running image references are used.
+3. Docker Compose attempts to restore the previous application containers.
+4. The deployment failure is reported to GitHub Actions.
+
+**Rollback testing:** The rollback mechanism was tested by deliberately using an invalid image tag. The image pull failed, the rollback was triggered, and the previously running application remained available.
+
+Further testing of failures occurring after new containers start is still planned.
+
+## CI/CD Pipeline
+
+| Stage | Description | Status |
+|---|---|---|
+| Source | Push code to GitHub main branch | Implemented |
+| CI | Build frontend and validate backend | Implemented |
+| Docker | Build frontend and backend images | Implemented |
+| Authentication | GitHub OIDC authentication with AWS | Implemented |
+| Registry | Push SHA-tagged images to ECR | Implemented |
+| Deployment | Trigger EC2 deployment through SSM | Implemented |
+| Health Check | Verify backend health after deployment | Implemented |
+| Rollback | Restore previously running image versions on failure | Implemented and initial failure path tested |
+
+## AWS Resources
+
+The project currently uses the following AWS resources:
+
+- Amazon EC2
+- Application Load Balancer
+- Elastic Container Registry (ECR)
+- AWS Systems Manager
+- IAM roles and policies
+- GitHub Actions OIDC identity provider
+
+**AWS Region:** `ap-northeast-1` (Tokyo)
+
+## Repository Structure
 
 ```text
 cloud-native-todo-platform/
 │
 ├── frontend/
-│   ├── src/
-│   ├── public/
-│   ├── package.json
-│   ├── package-lock.json
-│   └── Dockerfile
+│   └── React application
 │
 ├── backend/
-│   ├── app/
-│   ├── requirements.txt
-│   └── Dockerfile
-│
-├── terraform/
-│   └── # Infrastructure configuration
+│   └── FastAPI application
 │
 ├── .github/
 │   └── workflows/
 │       └── ci.yml
 │
 ├── docker-compose.yml
-├── README.md
-└── .gitignore
+├── docker-compose.prod.yml
+├── Dockerfile
+└── README.md
 ```
 
-## Application Features
+The exact deployment configuration is maintained on the EC2 instance at `/opt/todo-app`, including the active Compose configuration and deployment script.
 
-- React-based frontend.
-- FastAPI backend.
-- PostgreSQL database integration.
-- Containerized frontend and backend services.
-- Docker Compose-based application deployment.
-- AWS-hosted application environment.
+## Current Development Status
 
-## Infrastructure and Deployment
-
-The application has been deployed on AWS using the following components:
-
-- **Amazon EC2:** Hosts the application containers.
-- **Application Load Balancer:** Provides an entry point for application traffic.
-- **Docker Compose:** Manages application containers.
-- **Nginx:** Handles reverse proxy and application traffic routing.
-- **Amazon ECR:** Stores backend and frontend Docker images.
-
-Terraform is used for Infrastructure as Code and managing cloud infrastructure.
-
-## CI/CD Pipeline
-
-GitHub Actions automates application validation, Docker image creation, and image publishing to Amazon ECR.
-
-### Pipeline Workflow
-
-1. Code is pushed to the `main` branch or a pull request is created.
-2. GitHub Actions checks out the source code.
-3. Frontend dependencies are installed using `npm ci`.
-4. Frontend production build is executed.
-5. Backend dependencies are installed.
-6. Backend Python syntax is validated.
-7. Backend and frontend Docker images are built.
-8. For pushes to `main`, GitHub Actions authenticates with AWS using OIDC.
-9. Docker images are tagged with the Git commit SHA.
-10. Images are pushed to Amazon ECR.
-
-### GitHub Actions Workflow
-
-Workflow file:
-
-```text
-.github/workflows/ci.yml
-```
-
-### AWS Authentication Using OIDC
-
-The pipeline uses OpenID Connect (OIDC) to authenticate GitHub Actions with AWS without storing long-lived AWS access keys in GitHub Secrets.
-
-Authentication flow:
-
-```text
-GitHub Actions
-      |
-      v
-GitHub OIDC Identity Token
-      |
-      v
-AWS IAM OIDC Provider
-      |
-      v
-IAM Role Trust Policy
-      |
-      v
-Temporary AWS Credentials
-      |
-      v
-Amazon ECR
-```
-
-The IAM role is configured with permissions to push images to the two application repositories.
-
-### Amazon ECR Repositories
-
-| Repository | Purpose |
+| Area | Status |
 |---|---|
-| `ankit-todo-backend` | Backend Docker image |
-| `ankit-todo-frontend` | Frontend Docker image |
-
-Images are tagged using the GitHub commit SHA to maintain traceability between source code changes and container images.
-
-## Local Development
-
-### Prerequisites
-
-- Git
-- Node.js
-- Python
-- Docker
-- Docker Compose
-
-### Clone the Repository
-
-```bash
-git clone https://github.com/ankitguptasato/cloud-native-todo-platform.git
-
-cd cloud-native-todo-platform
-```
-
-### Start the Application
-
-```bash
-docker compose up --build -d
-```
-
-### Check Running Containers
-
-```bash
-docker compose ps
-```
-
-### View Application Logs
-
-```bash
-docker compose logs -f
-```
-
-### Stop the Application
-
-```bash
-docker compose down
-```
-
-## Current Implementation Status
-
-| Component | Status |
-|---|---|
-| React frontend | Implemented |
-| FastAPI backend | Implemented |
-| PostgreSQL integration | Implemented |
-| Docker containerization | Implemented |
-| Docker Compose | Implemented |
-| AWS EC2 deployment | Implemented |
-| Application Load Balancer | Implemented |
-| Nginx reverse proxy | Implemented |
-| Terraform infrastructure | In progress |
-| GitHub Actions CI pipeline | Implemented |
-| GitHub OIDC authentication | Implemented |
-| AWS ECR image publishing | Implemented |
-| Automated EC2 deployment from ECR | Planned |
+| Full-stack application | Completed |
+| Docker containerization | Completed |
+| AWS EC2 deployment | Completed |
+| Application Load Balancer | Completed |
+| ECR image management | Completed |
+| GitHub Actions CI | Completed |
+| GitHub OIDC authentication | Completed |
+| Automated continuous deployment | Completed |
+| Backend deployment health check | Completed |
+| Automatic rollback mechanism | Implemented; initial failure path tested |
+| Terraform infrastructure automation | In progress |
 
 ## Roadmap
 
-- [x] Build full-stack Todo application.
-- [x] Containerize frontend and backend.
-- [x] Deploy application on AWS EC2.
-- [x] Configure Application Load Balancer and Nginx.
-- [x] Build GitHub Actions CI workflow.
-- [x] Configure GitHub OIDC authentication with AWS.
-- [x] Automate Docker image publishing to Amazon ECR.
-- [ ] Complete Terraform-based infrastructure management.
-- [ ] Automate EC2 deployment from ECR.
-- [ ] Implement deployment health checks and rollback.
-- [ ] Introduce automated backend tests.
-- [ ] Explore Kubernetes-based deployment and orchestration.
-- [ ] Add monitoring, logging, and observability.
+- [ ] Complete AWS infrastructure provisioning using Terraform.
+- [ ] Manage EC2 deployment configuration and scripts directly from the GitHub repository.
+- [ ] Add frontend and application-level smoke tests after deployment.
+- [ ] Test rollback when a newly started application version fails its health check.
+- [ ] Improve deployment observability and logging.
+- [ ] Explore Kubernetes deployment using Amazon EKS.
+- [ ] Implement monitoring and alerting.
 
-## Project Goal
+## Project Objective
 
-This project is a practical learning initiative focused on Platform Engineering, Cloud Infrastructure, and DevOps.
+The goal of this project is to develop practical Platform Engineering skills by building and operating a cloud-native application.
 
-The objective is to understand and implement the complete application lifecycle, from source code and infrastructure provisioning to containerization, CI/CD automation, deployment, and operational monitoring.
+It focuses on understanding the complete application lifecycle—from source code and containerization to cloud infrastructure, CI/CD, deployment automation, health validation, and rollback.
