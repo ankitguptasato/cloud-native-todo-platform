@@ -111,6 +111,13 @@ jobs:
               ]
             }')
 
+          if [[ -z "${EC2_INSTANCE_ID:-}" ]]; then
+            echo "ERROR: EC2_INSTANCE_ID secret is empty or unavailable."
+            exit 1
+          fi
+
+          echo "EC2_INSTANCE_ID is configured."
+
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$EC2_INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
