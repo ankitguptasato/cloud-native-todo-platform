@@ -54,8 +54,32 @@ trap handle_failure ERR
 aws ecr get-login-password --region "${AWS_REGION}" \
   | sudo docker login --username AWS --password-stdin "${ECR_REGISTRY}"
 
+
+
+
+# Start PostgreSQL first
+sudo docker compose --env-file "${APP_DIR}/.env" up -d db
+
+# Wait for PostgreSQL to become healthy
+for attempt in $(seq 1 30); do
+  DB_STATUS=$(sudo docker inspect --format='{{.State.Health.Status}}' reactapp-db 2>/dev/null || true)
+
+  if [[ "${DB_STATUS}" == "healthy" ]]; then
+    echo "PostgreSQL is healthy."
+    break
+  fi
+
+  if [[ "${attempt}" -eq 30 ]]; then
+    echo "PostgreSQL failed to become healthy."
+    exit 1
+  fi
+
+  sleep 5
+done
+
+# Deploy backend and frontend
 sudo env BACKEND_IMAGE="${BACKEND_IMAGE}" FRONTEND_IMAGE="${FRONTEND_IMAGE}" \
-  docker compose --env-file "${APP_DIR}/.env" pull backend frontend
+  docker compose --env-file "${APP_DIR}/.env" up -d --no-deps backend frontend
 
 sudo env BACKEND_IMAGE="${BACKEND_IMAGE}" FRONTEND_IMAGE="${FRONTEND_IMAGE}" \
   docker compose --env-file "${APP_DIR}/.env" up -d --no-deps backend frontend
