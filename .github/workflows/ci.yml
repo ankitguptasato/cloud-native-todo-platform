@@ -95,7 +95,7 @@ jobs:
           set -euo pipefail
 
           COMPOSE_B64=$(base64 -w 0 docker-compose.yml)
-          DEPLOY_B64=$(base64 -w 0 deploy.sh)
+          DEPLOY_B64=$(base64 -w 0 scripts/deploy.sh)
 
           COMMANDS=$(jq -n \
             --arg compose "$COMPOSE_B64" \
