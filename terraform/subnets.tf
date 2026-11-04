@@ -36,3 +36,16 @@ resource "aws_subnet" "public_secondary" {
     Tier        = "public"
   }
 }
+
+resource "aws_subnet" "private_secondary" {
+  vpc_id                  = aws_vpc.platform.id
+  cidr_block              = var.second_private_subnet_cidr
+  availability_zone       = var.second_availability_zone
+  map_public_ip_on_launch = false
+
+  tags = {
+    Name        = "platform-lab-private-subnet-secondary"
+    Environment = "learning"
+    Tier        = "private"
+  }
+}

@@ -10,9 +10,29 @@ resource "aws_instance" "web" {
 
   user_data = <<-EOF
     #!/bin/bash
-    dnf install -y nginx
-    systemctl enable --now nginx
-    echo '<h1>Platform Lab - Nginx is Running!</h1>' > /usr/share/nginx/html/index.html
+    set -eux
+
+    # Install Docker
+    dnf install -y docker
+
+    # Start Docker automatically
+    systemctl enable --now docker
+
+    # Install Docker Compose plugin
+    mkdir -p /usr/local/lib/docker/cli-plugins
+
+    curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
+      -o /usr/local/lib/docker/cli-plugins/docker-compose
+
+    chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+    # Create application directory
+    mkdir -p /opt/todo-app
+    chmod 755 /opt/todo-app
+
+    # Verify installation
+    docker --version
+    docker compose version
   EOF
 
   tags = {

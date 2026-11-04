@@ -17,8 +17,8 @@ FRONTEND_IMAGE="${ECR_REGISTRY}/${FRONTEND_REPO}:${IMAGE_TAG}"
 
 cd "${APP_DIR}"
 
-PREVIOUS_BACKEND=$(sudo docker inspect todo-backend --format '{{.Config.Image}}')
-PREVIOUS_FRONTEND=$(sudo docker inspect todo-frontend --format '{{.Config.Image}}')
+PREVIOUS_BACKEND=$(sudo docker inspect todo-backend --format '{{.Config.Image}}' 2>/dev/null || true)
+PREVIOUS_FRONTEND=$(sudo docker inspect todo-frontend --format '{{.Config.Image}}' 2>/dev/null || true)
 
 echo "Previous backend: ${PREVIOUS_BACKEND}"
 echo "Previous frontend: ${PREVIOUS_FRONTEND}"
@@ -27,12 +27,17 @@ echo "New deployment version: ${IMAGE_TAG}"
 rollback() {
   echo "Deployment failed. Starting rollback..."
 
-  sudo env BACKEND_IMAGE="${PREVIOUS_BACKEND}" \
-    FRONTEND_IMAGE="${PREVIOUS_FRONTEND}" \
-    docker compose --env-file "${APP_DIR}/.env" \
-    up -d --no-deps backend frontend
+  if [[ -n "${PREVIOUS_BACKEND}" && -n "${PREVIOUS_FRONTEND}" ]]; then
+    sudo env BACKEND_IMAGE="${PREVIOUS_BACKEND}" \
+      FRONTEND_IMAGE="${PREVIOUS_FRONTEND}" \
+      docker compose --env-file "${APP_DIR}/.env" \
+      up -d --no-deps backend frontend
 
-  echo "Rollback command completed."
+    echo "Rollback command completed."
+  else
+    echo "No previous deployment found. Rollback is not available."
+  fi
+
   sudo docker ps --filter "name=todo-"
 }
 

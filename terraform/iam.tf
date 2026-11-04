@@ -28,12 +28,10 @@ resource "aws_iam_role_policy_attachment" "ec2_ssm" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
-
 resource "aws_iam_instance_profile" "ec2_ssm" {
-  name = "platform-lab-ec2-ssm-role"
+  name = "platform-lab-ec2-ssm-profile"
   role = aws_iam_role.ec2_ssm.name
 }
-
 
 resource "aws_iam_role_policy_attachment" "ec2_ecr_readonly" {
   role       = aws_iam_role.ec2_ssm.name
