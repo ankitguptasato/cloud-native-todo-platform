@@ -7,41 +7,62 @@ The project combines a React frontend, FastAPI backend, and PostgreSQL database,
 ## Architecture
 
 ```text
-                    Developer
-                        |
-                        v
-                   GitHub Repo
-                        |
-                        v
-                 GitHub Actions
-                        |
-              +---------+---------+
-              |                   |
-              v                   v
-         Build & Test        Docker Images
-                                  |
-                                  v
-                             Amazon ECR
-                                  |
-                                  v
-                         AWS Systems Manager
-                                  |
-                                  v
+                       Developer
+                           |
+                           v
+                       GitHub Repo
+                           |
+                           v
+                    GitHub Actions
+                           |
+                 +---------+---------+
+                 |                   |
+                 v                   v
+             Build & Test        Docker Images
+                                     |
+                                     v
+                                Amazon ECR
+                                     |
+                                     v
+                           AWS Systems Manager
+                                     |
+                                     v
                               EC2 Instance
-                                  |
-                            Docker Compose
-                                  |
-                    +-------------+-------------+
-                    |             |             |
-                    v             v             v
-                 Frontend      Backend       PostgreSQL
-                 React         FastAPI        Database
+                                     |
+                              Docker Compose
+                                     |
+                    +----------------+----------------+
+                    |                |                |
+                    v                v                v
+                 Frontend         Backend         PostgreSQL
+                  React           FastAPI          Database
                     |
                     v
                   Nginx
                     |
                     v
              Application Load Balancer
+                    |
+                    v
+                  Browser
+```
+
+**Incoming application traffic:**
+
+```text
+Browser
+   |
+   v
+Application Load Balancer (Port 80)
+   |
+   v
+Target Group (Port 80)
+   |
+   v
+EC2 Instance (Port 80)
+   |
+   v
+Frontend Container (Port 8080)
 ```
 
 ## Technology Stack
@@ -70,18 +91,28 @@ The project combines a React frontend, FastAPI backend, and PostgreSQL database,
 - FastAPI backend with REST API endpoints.
 - PostgreSQL database integration.
 - Containerized application services.
-- Health endpoint for backend and database connectivity verification.
+- Backend health endpoint for application health verification.
 
 ### 2. AWS Infrastructure and Deployment
 
 - Application hosted on an Amazon EC2 instance.
 - Application Load Balancer configured to route incoming traffic.
-- Nginx serving the frontend and handling API requests.
+- Nginx serving the frontend.
 - Amazon ECR storing backend and frontend Docker images.
 - Docker Compose managing application containers.
-- AWS Systems Manager used to access and manage the EC2 instance without relying on direct SSH access.
+- AWS Systems Manager used to access and manage the EC2 instance without direct SSH access.
+- Application successfully deployed and accessible through the public ALB DNS endpoint.
 
-### 3. Continuous Integration (CI)
+### 3. Database Deployment and Persistence
+
+- PostgreSQL 16 deployed using Docker Compose.
+- Database credentials and configuration supplied through environment variables.
+- Backend connects to PostgreSQL using Docker Compose internal networking.
+- PostgreSQL health check implemented using `pg_isready`.
+- Named Docker volume (`todo-app_pgdata`) configured for persistent database storage.
+- Backend startup waits for the database health check to pass.
+
+### 4. Continuous Integration (CI)
 
 GitHub Actions automatically runs the CI workflow when code is pushed to the main branch or a pull request is created against main.
 
@@ -93,7 +124,7 @@ The pipeline includes:
 - AWS authentication using GitHub OIDC.
 - Publishing Docker images to Amazon ECR.
 
-### 4. Continuous Deployment (CD)
+### 5. Continuous Deployment (CD)
 
 Continuous deployment is implemented through GitHub Actions and AWS Systems Manager.
 
@@ -103,14 +134,14 @@ After a successful push to the main branch:
 2. Images are tagged using the Git commit SHA.
 3. Images are pushed to their respective Amazon ECR repositories.
 4. GitHub Actions triggers an AWS Systems Manager command on the EC2 instance.
-5. The EC2 deployment script pulls the specified image versions.
+5. The deployment script pulls the specified image versions.
 6. Docker Compose updates the application containers.
-7. The deployment script checks the backend health status.
-8. The GitHub Actions workflow waits for the remote deployment command and reports its result.
+7. The deployment script verifies backend health.
+8. GitHub Actions waits for the remote deployment command and reports its result.
 
-This provides a continuous deployment workflow from a GitHub commit to the running application on AWS.
+The deployment script supports both initial deployment and subsequent application updates.
 
-### 5. Secure GitHub-to-AWS Authentication
+### 6. Secure GitHub-to-AWS Authentication
 
 GitHub Actions authenticates with AWS using OpenID Connect (OIDC).
 
@@ -119,7 +150,7 @@ GitHub Actions authenticates with AWS using OpenID Connect (OIDC).
 - ECR permissions are scoped to the application's repositories.
 - SSM permissions allow the workflow to trigger and monitor deployment commands.
 
-### 6. Automatic Deployment Rollback
+### 7. Automatic Deployment Rollback
 
 An automatic rollback mechanism has been implemented in the EC2 deployment script.
 
@@ -132,9 +163,19 @@ If deployment fails:
 3. Docker Compose attempts to restore the previous application containers.
 4. The deployment failure is reported to GitHub Actions.
 
-**Rollback testing:** The rollback mechanism was tested by deliberately using an invalid image tag. The image pull failed, the rollback was triggered, and the previously running application remained available.
+**Rollback testing:** The rollback mechanism was tested by deliberately using an invalid image tag. The image pull failed, rollback was triggered, and the previously running application remained available.
 
 Further testing of failures occurring after new containers start is still planned.
+
+### 8. Application Load Balancer and Public Access
+
+- Application Load Balancer configured with an HTTP listener on port 80.
+- Target Group configured to forward traffic to EC2 on port 80.
+- Health check path configured as `/`.
+- Frontend container exposes port 8080 internally and maps it to EC2 port 80.
+- Target Group health status verified as Healthy.
+- Application successfully accessed through the ALB DNS endpoint.
+- Frontend HTTP response verified with `200 OK`.
 
 ## CI/CD Pipeline
 
@@ -147,7 +188,8 @@ Further testing of failures occurring after new containers start is still planne
 | Registry | Push SHA-tagged images to ECR | Implemented |
 | Deployment | Trigger EC2 deployment through SSM | Implemented |
 | Health Check | Verify backend health after deployment | Implemented |
-| Rollback | Restore previously running image versions on failure | Implemented and initial failure path tested |
+| Rollback | Restore previously running image versions on failure | Implemented; initial failure path tested |
+| Public Access | Access application through ALB DNS | Verified |
 
 ## AWS Resources
 
@@ -173,6 +215,12 @@ cloud-native-todo-platform/
 ├── backend/
 │   └── FastAPI application
 │
+├── terraform/
+│   └── Infrastructure as Code
+│
+├── scripts/
+│   └── deploy.sh
+│
 ├── .github/
 │   └── workflows/
 │       └── ci.yml
@@ -183,7 +231,7 @@ cloud-native-todo-platform/
 └── README.md
 ```
 
-The exact deployment configuration is maintained on the EC2 instance at `/opt/todo-app`, including the active Compose configuration and deployment script.
+The deployment configuration is maintained in the repository and deployed to the EC2 instance at `/opt/todo-app`, including the active Docker Compose configuration and deployment script.
 
 ## Current Development Status
 
@@ -191,8 +239,11 @@ The exact deployment configuration is maintained on the EC2 instance at `/opt/to
 |---|---|
 | Full-stack application | Completed |
 | Docker containerization | Completed |
+| PostgreSQL deployment | Completed |
+| Database persistence | Implemented |
 | AWS EC2 deployment | Completed |
 | Application Load Balancer | Completed |
+| Public application access | Verified |
 | ECR image management | Completed |
 | GitHub Actions CI | Completed |
 | GitHub OIDC authentication | Completed |
@@ -208,11 +259,15 @@ The exact deployment configuration is maintained on the EC2 instance at `/opt/to
 - [ ] Add frontend and application-level smoke tests after deployment.
 - [ ] Test rollback when a newly started application version fails its health check.
 - [ ] Improve deployment observability and logging.
-- [ ] Explore Kubernetes deployment using Amazon EKS.
+- [ ] Deploy the application using Kubernetes.
+- [ ] Explore Amazon EKS.
+- [ ] Implement Kubernetes Deployments, Services, ConfigMaps, and Secrets.
+- [ ] Implement Ingress and application scaling.
 - [ ] Implement monitoring and alerting.
+- [ ] Explore GitOps-based deployment automation.
 
 ## Project Objective
 
 The goal of this project is to develop practical Platform Engineering skills by building and operating a cloud-native application.
 
-It focuses on understanding the complete application lifecycle—from source code and containerization to cloud infrastructure, CI/CD, deployment automation, health validation, and rollback..
+It focuses on understanding the complete application lifecycle—from source code and containerization to cloud infrastructure, CI/CD, deployment automation, health validation, rollback, public application access, and eventually Kubernetes-based orchestration.
