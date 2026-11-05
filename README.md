@@ -215,4 +215,4 @@ The exact deployment configuration is maintained on the EC2 instance at `/opt/to
 
 The goal of this project is to develop practical Platform Engineering skills by building and operating a cloud-native application.
 
-It focuses on understanding the complete application lifecycle—from source code and containerization to cloud infrastructure, CI/CD, deployment automation, health validation, and rollback.
+It focuses on understanding the complete application lifecycle—from source code and containerization to cloud infrastructure, CI/CD, deployment automation, health validation, and rollback..
