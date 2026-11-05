@@ -58,7 +58,9 @@ aws ecr get-login-password --region "${AWS_REGION}" \
 
 
 # Start PostgreSQL first
-sudo docker compose --env-file "${APP_DIR}/.env" up -d db
+sudo env BACKEND_IMAGE="$BACKEND_IMAGE" \
+  FRONTEND_IMAGE="$FRONTEND_IMAGE" \
+  docker compose up -d db
 
 # Wait for PostgreSQL to become healthy
 for attempt in $(seq 1 30); do
