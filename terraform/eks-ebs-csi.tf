@@ -3,7 +3,7 @@
 # Reuse the provider already registered in AWS IAM.
 
 locals {
-  eks_oidc_issuer = "https://oidc.eks.ap-northeast-1.amazonaws.com/id/2E540E41BD6844E6CC70E61CAC6DD2E5"
+  eks_oidc_issuer = aws_eks_cluster.platform.identity[0].oidc[0].issuer
 
   eks_oidc_provider = replace(
     local.eks_oidc_issuer,

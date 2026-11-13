@@ -6,9 +6,11 @@ resource "aws_subnet" "public" {
   map_public_ip_on_launch = true
 
   tags = {
-    Name        = "platform-lab-public-subnet"
-    Environment = "learning"
-    Tier        = "public"
+    Name                                 = "platform-lab-public-subnet"
+    Environment                          = "learning"
+    Tier                                 = "public"
+    "kubernetes.io/role/elb"             = "1"
+    "kubernetes.io/cluster/platform-lab" = "shared"
   }
 }
 
@@ -18,9 +20,10 @@ resource "aws_subnet" "private" {
   availability_zone = var.availability_zone
 
   tags = {
-    Name        = "platform-lab-private-subnet"
-    Environment = "learning"
-    Tier        = "private"
+    Name                                 = "platform-lab-private-subnet"
+    Environment                          = "learning"
+    Tier                                 = "private"
+    "kubernetes.io/cluster/platform-lab" = "shared"
   }
 }
 
@@ -31,9 +34,11 @@ resource "aws_subnet" "public_secondary" {
   map_public_ip_on_launch = true
 
   tags = {
-    Name        = "platform-lab-public-subnet-secondary"
-    Environment = "learning"
-    Tier        = "public"
+    Name                                 = "platform-lab-public-subnet-secondary"
+    Environment                          = "learning"
+    Tier                                 = "public"
+    "kubernetes.io/role/elb"             = "1"
+    "kubernetes.io/cluster/platform-lab" = "shared"
   }
 }
 
@@ -44,8 +49,9 @@ resource "aws_subnet" "private_secondary" {
   map_public_ip_on_launch = false
 
   tags = {
-    Name        = "platform-lab-private-subnet-secondary"
-    Environment = "learning"
-    Tier        = "private"
+    Name                                 = "platform-lab-private-subnet-secondary"
+    Environment                          = "learning"
+    Tier                                 = "private"
+    "kubernetes.io/cluster/platform-lab" = "shared"
   }
 }
