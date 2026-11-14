@@ -2,6 +2,7 @@ from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 
 from . import models, schemas
 from .database import Base, engine, get_db
@@ -26,14 +27,26 @@ def on_startup() -> None:
     Base.metadata.create_all(bind=engine)
 
 
+@app.get("/api/health/live")
+def liveness():
+    return {"status": "alive"}
+
+
+@app.get("/api/health/ready", response_model=schemas.HealthOut)
 @app.get("/api/health", response_model=schemas.HealthOut)
-def health(db: Session = Depends(get_db)) -> schemas.HealthOut:
+def readiness(db: Session = Depends(get_db)) -> schemas.HealthOut:
     try:
         db.execute(text("SELECT 1"))
-        db_status = "connected"
-    except Exception as exc:  # noqa: BLE001
-        db_status = f"error: {exc}"
-    return schemas.HealthOut(status="ok", database=db_status)
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database unavailable",
+        ) from exc
+
+    return schemas.HealthOut(
+        status="ok",
+        database="connected",
+    )
 
 
 @app.get("/api/todos", response_model=list[schemas.TodoOut])
