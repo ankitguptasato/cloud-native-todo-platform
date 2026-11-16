@@ -1,0 +1,20 @@
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: taint-test
+spec:
+  nodeSelector:
+    kubernetes.io/hostname: ip-10-0-2-168.ap-northeast-1.compute.internal
+  tolerations:
+    - key: "dedicated"
+      operator: "Equal"
+      value: "testing"
+      effect: "NoSchedule"
+  containers:
+    - name: nginx
+      image: nginx:latest
+      resources:
+        requests:
+          cpu: "50m"
+          memory: "32Mi"
