@@ -1,0 +1,13 @@
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-file-config
+data:
+  app-settings.json: |
+    {
+      "application": "todo-platform",
+      "environment": "production",
+      "log_level": "INFO",
+      "feature_debug": false
+    }

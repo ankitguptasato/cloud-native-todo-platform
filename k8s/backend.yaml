@@ -24,9 +24,55 @@ spec:
               memory: "256Mi" 
           ports:
             - containerPort: 8000
+          volumeMounts:
+            - name: app-config-volume
+              mountPath: /app/config
+              readOnly: true
+            
+            - name: app-config-volume
+              mountPath: /tmp/app-settings-subpath.json
+              subPath: app-settings.json
+              readOnly: true
+          
           env:
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: DB_HOST
+
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: DB_PORT
+
+            - name: DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: DB_NAME
+
+            - name: APP_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: APP_ENV
+
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: DB_USER
+
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: DB_PASSWORD
+
             - name: DATABASE_URL
-              value: "postgresql://todos:todos@postgres:5432/todos"
+              value: "postgresql://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)"
           startupProbe:
             httpGet:
               path: /api/health/live
@@ -49,6 +95,12 @@ spec:
             periodSeconds: 5
             timeoutSeconds: 2
             failureThreshold: 3
+      volumes:
+        - name: app-config-volume
+          configMap:
+            name: backend-file-config
+
+          
 ---
 apiVersion: v1
 kind: Service
