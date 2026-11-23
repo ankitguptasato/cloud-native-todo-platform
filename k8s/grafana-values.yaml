@@ -1,0 +1,35 @@
+
+replicas: 1
+
+admin:
+  existingSecret: grafana-admin
+  userKey: admin-user
+  passwordKey: admin-password
+
+nodeSelector:
+  kubernetes.io/hostname: ip-10-0-4-163.ap-northeast-1.compute.internal
+
+persistence:
+  enabled: false
+
+service:
+  enabled: true
+  type: ClusterIP
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 256Mi
+  limits:
+    cpu: 300m
+    memory: 384Mi
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus-server.monitoring.svc.cluster.local
+        isDefault: true
